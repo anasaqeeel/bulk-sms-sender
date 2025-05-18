@@ -1,13 +1,14 @@
 "use client"
 
 import type React from "react"
+import type { SmsResult } from "@/types"
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
-import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
+import { AlertCircle, CheckCircle, Loader2 } from "lucide-react"
 import { sendSmsMessages } from "@/app/actions"
 
 export function SendSmsForm() {
@@ -15,14 +16,7 @@ export function SendSmsForm() {
   const [deviceId, setDeviceId] = useState("")
   const [file, setFile] = useState<File | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [results, setResults] = useState<
-    {
-      name: string
-      phone: string
-      status: "success" | "error"
-      message?: string
-    }[]
-  >([])
+  const [results, setResults] = useState<SmsResult[]>([])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {

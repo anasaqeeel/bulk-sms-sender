@@ -2,8 +2,11 @@
 
 import * as XLSX from "xlsx";
 import { revalidatePath } from "next/cache";
+import type { SmsResult } from "@/types";
 
-export async function sendSmsMessages(formData: FormData) {
+export async function sendSmsMessages(
+  formData: FormData
+): Promise<SmsResult[]> {
   const accessToken = formData.get("accessToken") as string;
   const deviceId = formData.get("deviceId") as string;
   const file = formData.get("file") as File;
@@ -18,23 +21,23 @@ export async function sendSmsMessages(formData: FormData) {
   const worksheet = workbook.Sheets[workbook.SheetNames[0]];
   const data = XLSX.utils.sheet_to_json(worksheet);
 
-  const results = [];
+  const results: SmsResult[] = [];
 
   // Process each row
   for (const row of data) {
-    const record = row as Record<string, any>;
+    const record = row as Record<string, string | number | undefined>;
 
     if (!record.Name || !record.PhoneNumber) {
       results.push({
-        name: record.Name || "Unknown",
-        phone: record.PhoneNumber || "Missing",
-        status: "error" as const,
+        name: String(record.Name || "Unknown"),
+        phone: String(record.PhoneNumber || "Missing"),
+        status: "error",
         message: "Missing name or phone number",
       });
       continue;
     }
 
-    const name = record.Name;
+    const name = String(record.Name);
     const phone = String(record.PhoneNumber);
     const message = `Hi ${name}, this is a test message from Pushbullet SMS.`;
 
@@ -60,25 +63,25 @@ export async function sendSmsMessages(formData: FormData) {
         results.push({
           name,
           phone,
-          status: "success" as const,
+          status: "success",
           message: "Message sent successfully",
         });
       } else {
         results.push({
           name,
           phone,
-          status: "error" as const,
+          status: "error",
           message: responseData.error?.message || "Failed to send message",
         });
       }
 
       // Add a small delay between requests
       await new Promise((resolve) => setTimeout(resolve, 2000));
-    } catch (error) {
+    } catch (error: unknown) {
       results.push({
         name,
         phone,
-        status: "error" as const,
+        status: "error",
         message: error instanceof Error ? error.message : "Unknown error",
       });
     }
