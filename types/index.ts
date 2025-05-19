@@ -4,3 +4,8 @@ export type SmsResult = {
   status: "success" | "error";
   message?: string;
 };
+
+export type MessageTemplate = {
+  text: string;
+  hasPlaceholders: boolean;
+};

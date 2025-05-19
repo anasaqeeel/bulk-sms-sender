@@ -4,12 +4,33 @@ import * as XLSX from "xlsx";
 import { revalidatePath } from "next/cache";
 import type { SmsResult } from "@/types";
 
+// Function to replace placeholders in a message
+function replacePlaceholders(
+  template: string,
+  data: Record<string, string | number | undefined>
+): string {
+  // First, replace {{placeholder}} format (double curly braces)
+  let result = template.replace(/\{\{([^}]+)\}\}/g, (match, placeholder) => {
+    const key = placeholder.trim();
+    return data[key] !== undefined ? String(data[key]) : match;
+  });
+
+  // Then, replace {placeholder} format (single curly braces)
+  result = result.replace(/\{([^}]+)\}/g, (match, placeholder) => {
+    const key = placeholder.trim();
+    return data[key] !== undefined ? String(data[key]) : match;
+  });
+
+  return result;
+}
+
 export async function sendSmsMessages(
   formData: FormData
 ): Promise<SmsResult[]> {
   const accessToken = formData.get("accessToken") as string;
   const deviceId = formData.get("deviceId") as string;
   const file = formData.get("file") as File;
+  const defaultTemplate = formData.get("defaultTemplate") as string;
 
   if (!accessToken || !deviceId || !file) {
     throw new Error("Missing required fields");
@@ -39,7 +60,14 @@ export async function sendSmsMessages(
 
     const name = String(record.Name);
     const phone = String(record.PhoneNumber);
-    const message = `Hi ${name}, this is a test message from Pushbullet SMS.`;
+
+    // Use TextMessage from Excel if available, otherwise use the default template
+    const messageTemplate = record.TextMessage
+      ? String(record.TextMessage)
+      : defaultTemplate;
+
+    // Replace placeholders in the message template
+    const message = replacePlaceholders(messageTemplate, record);
 
     try {
       const response = await fetch("https://api.pushbullet.com/v2/texts", {
@@ -64,7 +92,7 @@ export async function sendSmsMessages(
           name,
           phone,
           status: "success",
-          message: "Message sent successfully",
+          message: `Message sent: "${message}"`,
         });
       } else {
         results.push({
