@@ -8,16 +8,15 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
-import { AlertCircle, CheckCircle, Loader2, Info } from "lucide-react"
+import { AlertCircle, CheckCircle, Loader2 } from "lucide-react"
 import { sendSmsMessages } from "@/app/actions"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export function SendSmsForm() {
   const [accessToken, setAccessToken] = useState("")
   const [deviceId, setDeviceId] = useState("")
   const [file, setFile] = useState<File | null>(null)
-  const [defaultTemplate, setDefaultTemplate] = useState("Hi {Name}, this is a message from our company.")
+  // Keep default template in state but don't show it in UI
+  const [defaultTemplate] = useState("Hi {Name}, this is a message from our company.")
   const [isLoading, setIsLoading] = useState(false)
   const [results, setResults] = useState<SmsResult[]>([])
 
@@ -30,7 +29,7 @@ export function SendSmsForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!accessToken || !deviceId || !file || !defaultTemplate) {
+    if (!accessToken || !deviceId || !file) {
       return
     }
 
@@ -80,38 +79,6 @@ export function SendSmsForm() {
         </div>
 
         <div>
-          <Label htmlFor="defaultTemplate">Default Message Template</Label>
-          <Textarea
-            id="defaultTemplate"
-            value={defaultTemplate}
-            onChange={(e) => setDefaultTemplate(e.target.value)}
-            placeholder="Enter your message template with placeholders like {Name}"
-            className="min-h-[100px]"
-            required
-          />
-          <p className="text-sm text-gray-500 mt-1">
-            Use placeholders like {"{Name}"} to personalize your message. This template will be used if a contact
-            doesn&apos;t have a TextMessage in the Excel file.
-          </p>
-        </div>
-
-        <Alert>
-          <Info className="h-4 w-4" />
-          <AlertTitle>Excel File Format</AlertTitle>
-          <AlertDescription>
-            Your Excel file must have columns named &quot;Name&quot; and &quot;PhoneNumber&quot;. You can also include a
-            &quot;TextMessage&quot; column for personalized messages.
-            <br />
-            <br />
-            <strong>Supported placeholder formats:</strong>
-            <ul className="list-disc pl-5 mt-1">
-              <li>{"{Name}"} - Single curly braces</li>
-              <li>{"{{Name}}"} - Double curly braces</li>
-            </ul>
-          </AlertDescription>
-        </Alert>
-
-        <div>
           <Label htmlFor="file">Excel File</Label>
           <Input id="file" type="file" accept=".xlsx, .xls" onChange={handleFileChange} required />
         </div>
@@ -144,7 +111,7 @@ export function SendSmsForm() {
                     <p className="font-medium">
                       {result.name} ({result.phone})
                     </p>
-                    {result.message && <p className="text-sm text-gray-500">{result.message}</p>}
+                    {result.message && <p className="text-sm text-gray-500 whitespace-pre-line">{result.message}</p>}
                   </div>
                 </div>
               </Card>
