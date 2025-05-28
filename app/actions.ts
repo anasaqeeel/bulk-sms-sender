@@ -4,6 +4,9 @@ import * as XLSX from "xlsx";
 import { revalidatePath } from "next/cache";
 import type { SmsResult } from "@/types";
 
+// Timer delay
+const DELAY_MS = 7.5 * 60 * 1000; // 7.5 minutes
+
 // Function to replace placeholders in a message
 function replacePlaceholders(
   template: string,
@@ -40,21 +43,24 @@ export async function sendSmsMessages(
   const arrayBuffer = await file.arrayBuffer();
   const workbook = XLSX.read(arrayBuffer, { type: "array" });
   const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-  const data = XLSX.utils.sheet_to_json(worksheet);
+
+  // Set raw: true to preserve line breaks and formatting
+  const data = XLSX.utils.sheet_to_json(worksheet, { raw: true });
 
   const results: SmsResult[] = [];
 
   // Process each row
-  for (const row of data) {
-    const record = row as Record<string, string | number | undefined>;
+  for (let i = 0; i < data.length; i++) {
+    const record = data[i] as Record<string, string | number | undefined>;
 
     if (!record.Name || !record.PhoneNumber) {
-      results.push({
+      const errorResult: SmsResult = {
         name: String(record.Name || "Unknown"),
         phone: String(record.PhoneNumber || "Missing"),
         status: "error",
         message: "Missing name or phone number",
-      });
+      };
+      results.push(errorResult);
       continue;
     }
 
@@ -88,33 +94,113 @@ export async function sendSmsMessages(
       const responseData = await response.json();
 
       if (response.ok) {
-        results.push({
+        const successResult: SmsResult = {
           name,
           phone,
           status: "success",
           message: `Message sent: "${message}"`,
-        });
+        };
+        results.push(successResult);
       } else {
-        results.push({
+        const failResult: SmsResult = {
           name,
           phone,
           status: "error",
           message: responseData.error?.message || "Failed to send message",
-        });
+        };
+        results.push(failResult);
       }
 
-      // Add a small delay between requests
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // Add delay if not the last message
+      if (i !== data.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
+      }
     } catch (error: unknown) {
-      results.push({
+      const errorResult: SmsResult = {
         name,
         phone,
         status: "error",
         message: error instanceof Error ? error.message : "Unknown error",
-      });
+      };
+      results.push(errorResult);
     }
   }
 
   revalidatePath("/");
   return results;
+}
+
+// New function to get contacts from Excel file
+export async function getContactsFromFile(formData: FormData) {
+  const file = formData.get("file") as File;
+
+  if (!file) {
+    throw new Error("No file provided");
+  }
+
+  const arrayBuffer = await file.arrayBuffer();
+  const workbook = XLSX.read(arrayBuffer, { type: "array" });
+  const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+  const data = XLSX.utils.sheet_to_json(worksheet);
+
+  return data.map((row, index) => {
+    const record = row as Record<string, string | number | undefined>;
+    return {
+      index,
+      name: String(record.Name || "Unknown"),
+      phone: String(record.PhoneNumber || "Missing"),
+      textMessage: record.TextMessage ? String(record.TextMessage) : null,
+    };
+  });
+}
+
+// New function to send a single SMS
+export async function sendSingleSms(
+  accessToken: string,
+  deviceId: string,
+  name: string,
+  phone: string,
+  message: string
+): Promise<SmsResult> {
+  try {
+    const response = await fetch("https://api.pushbullet.com/v2/texts", {
+      method: "POST",
+      headers: {
+        "Access-Token": accessToken,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        data: {
+          target_device_iden: deviceId,
+          addresses: [phone],
+          message: message,
+        },
+      }),
+    });
+
+    const responseData = await response.json();
+
+    if (response.ok) {
+      return {
+        name,
+        phone,
+        status: "success",
+        message: `Message sent: "${message}"`,
+      };
+    } else {
+      return {
+        name,
+        phone,
+        status: "error",
+        message: responseData.error?.message || "Failed to send message",
+      };
+    }
+  } catch (error: unknown) {
+    return {
+      name,
+      phone,
+      status: "error",
+      message: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
 }
